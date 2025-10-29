@@ -17,15 +17,6 @@ const openai = new OpenAI({
 app.use(cors());
 app.use(express.json());
 
-// Root endpoint
-app.get('/', (req, res) => {
-  res.json({
-    message: 'Server is running',
-    status: 'active',
-    timestamp: new Date().toISOString()
-  });
-});
-
 // Store chat history per session (in production, use a proper database)
 const chatHistory = new Map();
 
@@ -113,7 +104,7 @@ app.post('/api/login', (req, res) => {
 
   // Validate credentials
   const isValidUsername = username && username.toUpperCase() === 'KUWENI';
-  const isValidPassword = password === '1';
+  const isValidPassword = password === 'WEAREONE';
 
   if (!username) {
     console.log(`[${timestamp}] Login failed: Username required`);
@@ -166,6 +157,28 @@ app.post('/api/login', (req, res) => {
     });
   }
 });
+
+// Serve static files from React build folder (must come after API routes)
+const buildPath = path.join(__dirname, '../frontend/build');
+if (fs.existsSync(buildPath)) {
+  // Serve static files
+  app.use(express.static(buildPath));
+  
+  // Catch-all handler: send back React's index.html file for client-side routing
+  app.get('*', (req, res) => {
+    res.sendFile(path.join(buildPath, 'index.html'));
+  });
+} else {
+  // If build folder doesn't exist, show a message at root
+  app.get('/', (req, res) => {
+    res.json({
+      message: 'Server is running',
+      status: 'active',
+      note: 'React build folder not found. Please run "npm run build" in the frontend directory.',
+      timestamp: new Date().toISOString()
+    });
+  });
+}
 
 // Start server
 app.listen(PORT, () => {

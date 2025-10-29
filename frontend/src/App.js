@@ -1,6 +1,7 @@
 import './App.css';
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { asciiImages } from './asciiImages';
+import { API_ENDPOINTS } from './config';
 
 function App() {
   const [loading, setLoading] = useState(true);
@@ -257,7 +258,7 @@ The castle seemed to hold its breath, waiting for his response. Outside, the sta
       // Validate complete credentials with backend
       setIsCheckingAuth(true);
       try {
-        const response = await fetch('http://localhost:2121/api/login', {
+        const response = await fetch(API_ENDPOINTS.LOGIN, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
@@ -393,7 +394,7 @@ The castle seemed to hold its breath, waiting for his response. Outside, the sta
             setHistoryIndex(-1);
             
             // Send to backend
-            fetch('http://localhost:2121/api/chat', {
+            fetch(API_ENDPOINTS.CHAT, {
               method: 'POST',
               headers: {
                 'Content-Type': 'application/json',
@@ -813,7 +814,7 @@ Books found in BOOKS:
                          -= UNAUTHORISED ACCESS IS PROHIBITED =-
                        Last Modified: October 16, 1996 (03:32 IST)
 
-FTP access is available on 192.32.208.66 2122
+Thambapanni access is available on 69.197.187.24 2121
 
 User authentication required.
 Username: ${input}
@@ -882,7 +883,7 @@ Authentication successful.
 
   ================================================
 
-KUWENI@ftp:/$ `;
+KUWENI@thambapanni:/$ `;
       
       // Wait a moment, then type out welcome message character by character
       let typingInterval;
@@ -965,13 +966,13 @@ KUWENI@ftp:/$ `;
     const commandAfterCursor = currentCommand.slice(cursorPosition);
     
     // Check if typing animation is complete (ends with terminal prompt)
-    const animationComplete = typedText.includes('KUWENI@ftp:/$');
+    const animationComplete = typedText.includes('KUWENI@thambapanni:/$');
     
     // Get the welcome message without the terminal prompt
     let displayText = typedText;
     if (animationComplete) {
-      // Remove the "KUWENI@ftp:/$" from the typed text
-      const lastPromptIndex = typedText.lastIndexOf('KUWENI@ftp:/$');
+      // Remove the "KUWENI@thambapanni:/$" from the typed text
+      const lastPromptIndex = typedText.lastIndexOf('KUWENI@thambapanni:/$');
       if (lastPromptIndex !== -1) {
         displayText = typedText.substring(0, lastPromptIndex);
       }
@@ -1003,10 +1004,10 @@ KUWENI@ftp:/$ `;
   if (!isNaN(cmdIndex) && cmdIndex >= 0 && cmdIndex <= 4 && item.output === 'Image displayed below') {
     output += '\n' + (asciiImages[cmdIndex] || '');
   }
-  return `\nKUWENI@ftp:/$ ${item.command}\n${output}`;
+  return `\nKUWENI@thambapanni:/$ ${item.command}\n${output}`;
 }).join('\n')}
 {chatDisplay}
-{animationComplete ? (chatMode ? `\nVIJAYA> ${commandBeforeCursor}` : `\nKUWENI@ftp:/${currentLocation ? `$${currentLocation}/` : '$'} ${commandBeforeCursor}`) : ''}<span className="terminal-cursor">█</span>{animationComplete ? commandAfterCursor : ''}
+{animationComplete ? (chatMode ? `\nVIJAYA> ${commandBeforeCursor}` : `\nKUWENI@thambapanni:/${currentLocation ? `$${currentLocation}/` : '$'} ${commandBeforeCursor}`) : ''}<span className="terminal-cursor">█</span>{animationComplete ? commandAfterCursor : ''}
             </pre>
           </div>
         </header>
@@ -1042,7 +1043,7 @@ KUWENI@ftp:/$ `;
                          -= UNAUTHORISED ACCESS IS PROHIBITED =-
                        Last Modified: October 16, 1996 (03:32 IST)
 
-FTP access is available on 192.32.208.66 2122
+thambapanni access is available on 69.197.187.24 2122
 
 User authentication required.`}{showPasswordField ? 
 `\nUsername: ${input}
