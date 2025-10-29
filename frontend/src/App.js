@@ -1,5 +1,6 @@
 import './App.css';
 import { useState, useEffect, useCallback, useRef } from 'react';
+import { asciiImages } from './asciiImages';
 
 function App() {
   const [loading, setLoading] = useState(true);
@@ -18,6 +19,8 @@ function App() {
   const [commandHistory, setCommandHistory] = useState([]);
   const [historyIndex, setHistoryIndex] = useState(-1);
   const [commandOutput, setCommandOutput] = useState([]);
+  const [imageSelectionMode, setImageSelectionMode] = useState(false);
+  const [selectedImageIndex, setSelectedImageIndex] = useState(null);
   const terminalRef = useRef(null);
 
   const loadingSteps = [
@@ -29,6 +32,13 @@ function App() {
     '[SYSTEM] Initializing terminal...',
     '[SYSTEM] Server ready. Welcome.'
   ];
+
+  // ASCII Art for selected image
+  const getAsciiImage = () => {
+    if (selectedImageIndex === null) return '';
+    // Return a sample of the ASCII art you provided
+    return asciiImages[selectedImageIndex] || 'No image available.';
+  };
 
   const handleLogin = useCallback(async () => {
     if (showPasswordField) {
@@ -113,6 +123,24 @@ function App() {
             setCommandHistory(prev => [...prev, currentCommand]);
             setHistoryIndex(-1);
             
+            // Handle image selection mode
+            if (imageSelectionMode) {
+              const index = parseInt(currentCommand.trim());
+              if (!isNaN(index) && index >= 0 && index <= 4) {
+                setSelectedImageIndex(index);
+                setImageSelectionMode(false);
+                // Add the image to command output instead of a separate display
+                const output = 'Image displayed below';
+                setCommandOutput(prev => [...prev, { command: currentCommand, output }]);
+              } else {
+                const output = 'Invalid index. Please enter a number between 0 and 4.';
+                setCommandOutput(prev => [...prev, { command: currentCommand, output }]);
+              }
+              setCurrentCommand('');
+              setCursorPosition(0);
+              return;
+            }
+            
             // Execute command
             const cmd = currentCommand.trim().toLowerCase();
             let output = '';
@@ -135,7 +163,15 @@ function App() {
             } else if (cmd === 'chat_with_kuweni') {
               output = 'KUWENI: Hello! I am KUWENI. How can I assist you today?';
             } else if (cmd === 'show_img') {
-              output = 'Displaying images... (Feature coming soon)';
+              output = `Available Images:
+[0] location_image.png
+[1] places_image.png
+[2] kuweni_image.png
+[3] path_image.png
+[4] route_image.png
+
+Enter image index (0-4):`;
+              setImageSelectionMode(true);
             } else if (cmd === 'show_map') {
               output = 'Showing map location... (Feature coming soon)';
             } else if (cmd === 'get_location') {
@@ -413,7 +449,15 @@ KUWENI@ftp:/$ `;
         <header className="App-header" ref={terminalRef} style={{justifyContent: 'flex-start', alignItems: 'flex-start', overflow: 'auto'}}>
           <div>
             <pre style={{margin: 0, fontFamily: 'Consolas, Courier New, Lucida Console, monospace'}}>
-{displayText}{commandOutput.map((item, index) => `\nKUWENI@ftp:/$ ${item.command}\n${item.output}`).join('\n')}
+{displayText}{commandOutput.map((item, index) => {
+  let output = item.output;
+  // If this command was an image selection (0-4), show the ASCII art
+  const cmdIndex = parseInt(item.command.trim());
+  if (!isNaN(cmdIndex) && cmdIndex >= 0 && cmdIndex <= 4 && item.output === 'Image displayed below') {
+    output += '\n' + (asciiImages[cmdIndex] || '');
+  }
+  return `\nKUWENI@ftp:/$ ${item.command}\n${output}`;
+}).join('\n')}
 {animationComplete ? `\nKUWENI@ftp:/$ ${commandBeforeCursor}` : ''}<span className="terminal-cursor">█</span>{animationComplete ? commandAfterCursor : ''}
             </pre>
           </div>
