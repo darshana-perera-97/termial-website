@@ -1,8 +1,17 @@
+require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
+const OpenAI = require('openai');
+const fs = require('fs');
+const path = require('path');
 
 const app = express();
 const PORT = process.env.PORT || 2121;
+
+// Initialize OpenAI client
+const openai = new OpenAI({
+  apiKey: process.env.OPENAI_API_KEY
+});
 
 // Middleware
 app.use(cors());
@@ -15,6 +24,84 @@ app.get('/', (req, res) => {
     status: 'active',
     timestamp: new Date().toISOString()
   });
+});
+
+// Store chat history per session (in production, use a proper database)
+const chatHistory = new Map();
+
+// Logging function to write messages to logs.txt
+function logMessage(message) {
+  const logPath = path.join(__dirname, 'logs.txt');
+  const timestamp = new Date().toISOString();
+  const logEntry = `[${timestamp}] ${message}\n`;
+  
+  fs.appendFile(logPath, logEntry, (err) => {
+    if (err) {
+      console.error('Error writing to log file:', err);
+    }
+  });
+}
+
+// Chat endpoint with ChatGPT integration
+app.post('/api/chat', async (req, res) => {
+  const { userMessage, sessionId } = req.body;
+  const timestamp = new Date().toISOString();
+  
+  console.log(`[${timestamp}] Chat message from VIJAYA: "${userMessage}"`);
+  logMessage(`VIJAYA: ${userMessage}`);
+  
+  try {
+    // Get or create session history
+    if (!chatHistory.has(sessionId)) {
+      chatHistory.set(sessionId, []);
+    }
+    const history = chatHistory.get(sessionId);
+    
+    // Add user message to history
+    history.push({ role: 'user', content: userMessage });
+    
+    // Prepare messages for OpenAI
+    const messages = [
+      {
+        role: 'system',
+        content: `You are KUWENI, a 28 year old lady who studied in Trincomalee campus in 2019 in CS. This system is developed inside the Java Lab in CS Department. You are now working for a secret Organization in Sri Lanka. If the user wants more details, tell them to search the bedroom (they can use 'show_map' command). DO NOT provide any location details. Give small, short, straight answers.`
+      },
+      ...history
+    ];
+    
+    // Call OpenAI
+    const completion = await openai.chat.completions.create({
+      model: 'gpt-4o-mini',
+      messages: messages,
+      temperature: 0.7,
+      max_tokens: 50
+    });
+    
+    const assistantMessage = completion.choices[0].message.content;
+    
+    // Log KUWENI's response
+    logMessage(`KUWENI: ${assistantMessage}`);
+    
+    // Add assistant response to history
+    history.push({ role: 'assistant', content: assistantMessage });
+    
+    // Keep only last 10 messages to manage context
+    if (history.length > 10) {
+      history.shift();
+    }
+    
+    res.json({
+      success: true,
+      response: assistantMessage
+    });
+  } catch (error) {
+    console.error('ChatGPT error:', error);
+    logMessage(`ERROR: ${error.message}`);
+    res.status(500).json({
+      success: false,
+      response: 'Error occurred.'
+    });
+  }
 });
 
 // Login validation endpoint

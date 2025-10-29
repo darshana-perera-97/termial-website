@@ -1,13 +1,22 @@
-body {
+html, body {
   margin: 0;
+  padding: 0;
+  height: 100%;
+  overflow: hidden;
+}
+
+#root {
+  height: 100%;
+  overflow: hidden;
+}
+
+body {
   font-family: 'Consolas', 'Courier New', 'Lucida Console', monospace;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   background-color: #000000;
   color: #00FF00;
   cursor: none;
-  overflow-x: hidden;
-  overflow-y: auto;
   user-select: none;
   -webkit-user-select: none;
   -moz-user-select: none;

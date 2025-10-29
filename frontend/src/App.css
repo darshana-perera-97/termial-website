@@ -1,9 +1,12 @@
 .App {
   text-align: left;
   background-color: #000000;
-  min-height: 100vh;
-  padding: 20px;
+  height: 100vh;
+  width: 100vw;
+  padding: 0;
+  margin: 0;
   font-family: 'Consolas', 'Courier New', 'Lucida Console', monospace;
+  overflow: hidden;
 }
 
 .App-logo {
@@ -12,12 +15,16 @@
 
 .App-header {
   background-color: #000000;
-  min-height: 100vh;
+  height: 100vh;
+  width: 100%;
   display: flex;
   flex-direction: column;
   color: #00FF00;
   font-family: 'Consolas', 'Courier New', 'Lucida Console', monospace;
   padding: 20px;
+  box-sizing: border-box;
+  overflow-y: auto;
+  overflow-x: hidden;
 }
 
 .App-link {

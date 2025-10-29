@@ -21,6 +21,13 @@ function App() {
   const [commandOutput, setCommandOutput] = useState([]);
   const [imageSelectionMode, setImageSelectionMode] = useState(false);
   const [selectedImageIndex, setSelectedImageIndex] = useState(null);
+  const [chatMode, setChatMode] = useState(false);
+  const [chatHistory, setChatHistory] = useState([]);
+  const [chatSessionId] = useState(() => `session_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`);
+  const [botReplyCount, setBotReplyCount] = useState(0);
+  const [typingMessage, setTypingMessage] = useState({ index: null, text: '', fullText: '' });
+  const [currentLocation, setCurrentLocation] = useState(null);
+  const typingIntervalRef = useRef(null);
   const terminalRef = useRef(null);
 
   const loadingSteps = [
@@ -38,6 +45,211 @@ function App() {
     if (selectedImageIndex === null) return '';
     // Return a sample of the ASCII art you provided
     return asciiImages[selectedImageIndex] || 'No image available.';
+  };
+
+  // Function to wrap text content in a box
+  const wrapInBox = (title, text) => {
+    const boxWidth = 76; // Fixed width for better display
+    const contentLines = text.trim().split('\n');
+    
+    let result = `\n╔${'═'.repeat(boxWidth)}╗\n`;
+    // Center the title
+    const titlePadding = Math.floor((boxWidth - title.length) / 2);
+    result += `║${' '.repeat(titlePadding)}${title}${' '.repeat(boxWidth - title.length - titlePadding)}║\n`;
+    result += `╠${'═'.repeat(boxWidth)}╣\n`;
+    
+    contentLines.forEach(line => {
+      if (line.trim() === '') {
+        result += `║${' '.repeat(boxWidth)}║\n`;
+      } else {
+        // Handle long lines by word-wrapping
+        let remaining = line;
+        while (remaining.length > 0) {
+          if (remaining.length <= boxWidth - 4) {
+            result += `║ ${remaining.padEnd(boxWidth - 4)} ║\n`;
+            remaining = '';
+          } else {
+            // Try to break at a word boundary
+            let breakPoint = boxWidth - 4;
+            for (let i = breakPoint; i > 0; i--) {
+              if (remaining[i] === ' ') {
+                breakPoint = i;
+                break;
+              }
+            }
+            result += `║ ${remaining.substring(0, breakPoint).padEnd(boxWidth - 4)} ║\n`;
+            remaining = remaining.substring(breakPoint).trim();
+          }
+        }
+      }
+    });
+    
+    result += `╚${'═'.repeat(boxWidth)}╝\n`;
+    return result;
+  };
+
+  // Item content data
+  const itemContent = {
+    DOOR: {
+      0: {
+        name: 'PICTURE',
+        type: 'ascii',
+        content: `
+    ╔════════════════════╗
+    ║                    ║
+    ║     /\\_/\\         ║
+    ║    ( o.o )         ║
+    ║     > ^ <          ║
+    ║                    ║
+    ║    PICTURE FRAME    ║
+    ╚════════════════════╝
+`
+      },
+      1: {
+        name: 'CALENDER',
+        type: 'calendar',
+        content: `
+    October 2025
+┌─────┬─────┬─────┬─────┬─────┬─────┬─────┐
+│ Mon │ Tue │ Wed │ Thu │ Fri │ Sat │ Sun │
+├─────┼─────┼─────┼─────┼─────┼─────┼─────┤
+│     │     │  1  │  2  │  3  │  4  │  5  │
+│  6  │  7  │  8  │  9  │ 10  │ 11  │ 12  │
+│ 13  │ 14  │ 15  │ 16  │ 17  │ 18  │ 19  │
+│ 20  │ 21  │ 22  │ 23  │ 24  │ 25  │ 26  │
+│ 27  │ 28  │ 29  │ 30  │ 31  │     │     │
+└─────┴─────┴─────┴─────┴─────┴─────┴─────┘
+`
+      }
+    },
+    DESK: {
+      0: {
+        name: 'LAPTOP',
+        type: 'ascii',
+        content: `
+╔════════════════════════════════╗
+║                                ║
+║     ⚠️  ERROR  ⚠️              ║
+║                                ║
+║  ████████ NO POWER ████████    ║
+║                                ║
+║  [SYSTEM] Laptop is not       ║
+║           connected to power   ║
+║                                ║
+╚════════════════════════════════╝
+`
+      },
+      1: {
+        name: 'PAPER',
+        type: 'ascii',
+        content: `
+    IoT Project Sketch - NodeMCU
+    
+    ┌─────────────┐
+    │   NodeMCU   │
+    │  (ESP8266)  │
+    └──────┬──────┘
+           │
+    ┌──────▼──────┐
+    │   Sensor    │
+    │   (DHT22)   │
+    └──────┬──────┘
+           │
+    ┌──────▼──────┐
+    │   Cloud     │
+    │   Server    │
+    └─────────────┘
+    
+    Project: Temperature & Humidity Monitor
+`
+      },
+      2: {
+        name: 'NOTEBOOK',
+        type: 'text',
+        content: `
+AI Technology Blog
+
+Artificial Intelligence has revolutionized the way we interact with technology, transforming industries from healthcare to finance, and reshaping our daily lives in unprecedented ways. Machine learning algorithms now power recommendation systems, enabling platforms to understand user preferences and deliver personalized experiences. Deep learning, a subset of machine learning, has achieved remarkable breakthroughs in image recognition, natural language processing, and autonomous systems.
+
+The rise of generative AI models has opened new frontiers in creativity and problem-solving. Large language models can now generate human-like text, assist in coding, and provide intelligent responses across various domains. These technologies are not just tools but collaborative partners that enhance human capabilities rather than replace them.
+
+However, the rapid advancement of AI also brings challenges. Ethical considerations around privacy, bias, and job displacement require careful navigation. As we integrate AI more deeply into society, we must ensure these systems are transparent, fair, and beneficial for all. The future of AI lies in responsible development, where technology serves humanity's best interests while addressing complex global challenges.
+`
+      }
+    },
+    BED: {
+      0: {
+        name: 'STORY BOOK',
+        type: 'text',
+        content: `
+Harry Potter Story Excerpt
+
+Harry stood alone in the dimly lit corridor of Hogwarts, his wand held tightly in his trembling hand. The ancient stones whispered secrets of generations past, and the candlelight danced shadows upon the walls like phantoms. He could hear the distant echo of footsteps approaching, each step resonating with purpose and mystery.
+
+The air grew colder as a figure emerged from the darkness. It was Professor Snape, his dark robes billowing like a specter of night itself. His piercing eyes met Harry's with a mixture of disapproval and something else—something that might have been respect, or perhaps even concern. The silence between them was heavy, filled with unspoken words and hidden truths.
+
+"You seek answers," Snape's voice cut through the stillness like a knife. "But are you prepared for what you might discover?" Harry felt the weight of those words, understanding that knowledge came with responsibility, and truth often carried a price. In that moment, he realized that his journey was not just about defeating darkness, but about understanding the complexities of good and evil, love and loss, and the sacrifices required for true courage.
+
+The castle seemed to hold its breath, waiting for his response. Outside, the stars shone bright above the Forbidden Forest, witnesses to the timeless struggle between light and shadow that defined both the wizarding world and Harry's own destiny.
+`
+      },
+      1: {
+        name: 'PILLOW',
+        type: 'text',
+        content: '\nNothing found.\n'
+      },
+      2: {
+        name: 'BED SHEET',
+        type: 'text',
+        content: '\nNothing found.\n'
+      }
+    },
+    BOOKS: {
+      0: { name: 'BOOK_01', content: 'Book content not available yet.' },
+      1: { name: 'BOOK_02', content: 'Book content not available yet.' },
+      2: { name: 'BOOK_03', content: 'Book content not available yet.' },
+      3: { name: 'BOOK_04', content: 'Book content not available yet.' },
+      4: { name: 'BOOK_05', content: 'Book content not available yet.' },
+      5: { name: 'BOOK_06', content: 'Book content not available yet.' },
+      6: { name: 'BOOK_07', content: 'Book content not available yet.' },
+      7: { name: 'BOOK_08', content: 'Book content not available yet.' },
+      8: { name: 'BOOK_09', content: 'Book content not available yet.' },
+      9: { name: 'BOOK_10', content: 'Book content not available yet.' }
+    }
+  };
+
+  // Start typing animation for KUWENI messages
+  const startTypingAnimation = (fullText, messageIndex) => {
+    // Clear any existing typing animation
+    if (typingIntervalRef.current) {
+      clearInterval(typingIntervalRef.current);
+    }
+    
+    setTypingMessage({ index: messageIndex, text: '', fullText });
+    
+    let currentIndex = 0;
+    typingIntervalRef.current = setInterval(() => {
+      if (currentIndex < fullText.length) {
+        setTypingMessage(prev => ({
+          ...prev,
+          text: fullText.substring(0, currentIndex + 1)
+        }));
+        currentIndex++;
+      } else {
+        // Animation complete
+        clearInterval(typingIntervalRef.current);
+        typingIntervalRef.current = null;
+        setTypingMessage({ index: null, text: '', fullText: '' });
+        // Update chat history with full message
+        setChatHistory(prev => {
+          const newHistory = [...prev];
+          if (newHistory[messageIndex]) {
+            newHistory[messageIndex] = { sender: 'KUWENI', message: fullText };
+          }
+          return newHistory;
+        });
+      }
+    }, 15); // 15ms per character for typing speed
   };
 
   const handleLogin = useCallback(async () => {
@@ -117,6 +329,145 @@ function App() {
       
       // Terminal mode (after authentication)
       if (isAuthenticated) {
+        // Handle Ctrl+C to exit chat mode
+        if (e.ctrlKey && e.key === 'c' && chatMode) {
+          e.preventDefault();
+          setChatMode(false);
+          setChatHistory([]); // Clear chat messages
+          setCurrentCommand('');
+          setCursorPosition(0);
+          // Clean up typing animation if active
+          if (typingIntervalRef.current) {
+            clearInterval(typingIntervalRef.current);
+            typingIntervalRef.current = null;
+          }
+          setTypingMessage({ index: null, text: '', fullText: '' });
+          const output = '\n[SYSTEM] Chat session ended. Use "chat_with_KUWENI" to restart.';
+          setCommandOutput(prev => [...prev, { command: 'chat', output }]);
+          return;
+        }
+        
+        // Chat mode handling
+        if (chatMode && e.key === 'Enter') {
+          if (currentCommand.trim()) {
+            // Check if we've reached the 8 message limit
+            if (botReplyCount >= 8) {
+              // Add KUWENI ending message with typing animation
+              const endingMessage = 'I have to end our conversation now. Chat session ended.';
+              setChatHistory(prev => {
+                const newHistory = [...prev];
+                const messageIndex = newHistory.length;
+                newHistory.push({ sender: 'KUWENI', message: '' }); // Placeholder
+                startTypingAnimation(endingMessage, messageIndex);
+                return newHistory;
+              });
+              setTimeout(() => {
+                setChatMode(false);
+                setChatHistory([]); // Clear chat messages
+                // Clean up typing animation
+                if (typingIntervalRef.current) {
+                  clearInterval(typingIntervalRef.current);
+                  typingIntervalRef.current = null;
+                }
+                setTypingMessage({ index: null, text: '', fullText: '' });
+                // Add system message to command output
+                const output = '\n[SYSTEM] Chat session ended. Use "chat_with_KUWENI" to restart.';
+                setCommandOutput(prev => [...prev, { command: 'chat', output }]);
+              }, endingMessage.length * 15 + 50);
+              setCurrentCommand('');
+              setCursorPosition(0);
+              return;
+            }
+            
+            const userMessage = currentCommand.trim();
+            
+            // Add user message immediately to chat history
+            setChatHistory(prev => [...prev, { sender: 'VIJAYA', message: userMessage }]);
+            
+            // Clear input
+            setCurrentCommand('');
+            setCursorPosition(0);
+            
+            // Add command to history
+            setCommandHistory(prev => [...prev, userMessage]);
+            setHistoryIndex(-1);
+            
+            // Send to backend
+            fetch('http://localhost:2121/api/chat', {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+              },
+              body: JSON.stringify({ userMessage, sessionId: chatSessionId })
+            })
+            .then(res => res.json())
+            .then(data => {
+              // Check if we've reached the 8 message limit
+              const newCount = botReplyCount + 1;
+              setBotReplyCount(newCount);
+              
+              // Add placeholder for KUWENI response and start typing animation
+              if (data.success) {
+                setChatHistory(prev => {
+                  const newHistory = [...prev];
+                  const messageIndex = newHistory.length;
+                  newHistory.push({ sender: 'KUWENI', message: '' }); // Placeholder
+                  startTypingAnimation(data.response, messageIndex);
+                  return newHistory;
+                });
+              } else {
+                setChatHistory(prev => {
+                  const newHistory = [...prev];
+                  const messageIndex = newHistory.length;
+                  newHistory.push({ sender: 'KUWENI', message: '' }); // Placeholder
+                  startTypingAnimation(data.response || 'Error occurred.', messageIndex);
+                  return newHistory;
+                });
+              }
+              
+              // Exit chat mode after 8 bot replies
+              if (newCount >= 8) {
+                setTimeout(() => {
+                  // Add KUWENI ending message with typing animation
+                  const endingMessage = 'I have to end our conversation now. Chat session ended.';
+                  setChatHistory(prev => {
+                    const newHistory = [...prev];
+                    const messageIndex = newHistory.length;
+                    newHistory.push({ sender: 'KUWENI', message: '' }); // Placeholder
+                    startTypingAnimation(endingMessage, messageIndex);
+                    return newHistory;
+                  });
+                  // Exit chat mode after ending message animation completes
+                  setTimeout(() => {
+                    setChatMode(false);
+                    setChatHistory([]); // Clear chat messages
+                    // Clean up typing animation
+                    if (typingIntervalRef.current) {
+                      clearInterval(typingIntervalRef.current);
+                      typingIntervalRef.current = null;
+                    }
+                    setTypingMessage({ index: null, text: '', fullText: '' });
+                    // Add system message to command output
+                    const output = '\n[SYSTEM] Chat session ended. Use "chat_with_KUWENI" to restart.';
+                    setCommandOutput(prev => [...prev, { command: 'chat', output }]);
+                  }, endingMessage.length * 15 + 500);
+                }, 500);
+              }
+            })
+            .catch(error => {
+              console.error('Chat error:', error);
+              setChatHistory(prev => {
+                const newHistory = [...prev];
+                const messageIndex = newHistory.length;
+                newHistory.push({ sender: 'KUWENI', message: '' }); // Placeholder
+                startTypingAnimation('Error: Could not connect to server.', messageIndex);
+                return newHistory;
+              });
+            });
+          }
+          return;
+        }
+        
         if (e.key === 'Enter') {
           if (currentCommand.trim()) {
             // Add to history and execute command
@@ -145,6 +496,70 @@ function App() {
             const cmd = currentCommand.trim().toLowerCase();
             let output = '';
             
+            // Handle location-based commands if in a location
+            if (currentLocation) {
+              // Handle ".." to go back to root
+              if (cmd === '..') {
+                setCurrentLocation(null);
+                output = '\n[SYSTEM] Returned to root directory.';
+                setCommandOutput(prev => [...prev, { command: currentCommand, output }]);
+                setCurrentCommand('');
+                setCursorPosition(0);
+                return;
+              }
+              
+              // Handle "show <index>" command
+              if (cmd.startsWith('show ')) {
+                const parts = cmd.split(' ');
+                if (parts.length === 2) {
+                  const index = parseInt(parts[1]);
+                  if (!isNaN(index)) {
+                    const locationData = itemContent[currentLocation];
+                    if (locationData && locationData[index]) {
+                      const item = locationData[index];
+                      if (item.type === 'text' && (item.name === 'NOTEBOOK' || item.name === 'STORY BOOK')) {
+                        // Wrap blog and story in a box
+                        output = wrapInBox(item.name, item.content);
+                      } else {
+                        output = `\n${item.name}\n${item.content}`;
+                      }
+                    } else {
+                      output = `\n[ERROR] Item [${index}] not found in ${currentLocation}.`;
+                    }
+                  } else {
+                    output = `\n[ERROR] Invalid index. Please enter a number.`;
+                  }
+                } else {
+                  output = `\n[ERROR] Usage: show <index>\nExample: show 0`;
+                }
+                setCommandOutput(prev => [...prev, { command: currentCommand, output }]);
+                setCurrentCommand('');
+                setCursorPosition(0);
+                return;
+              }
+            }
+            
+            // Handle "use <location>" command
+            if (cmd.startsWith('use ')) {
+              const parts = cmd.split(' ');
+              if (parts.length === 2) {
+                const location = parts[1].toUpperCase();
+                const validLocations = ['DOOR', 'DESK', 'PC', 'BED', 'BOOKS'];
+                if (validLocations.includes(location)) {
+                  setCurrentLocation(location);
+                  output = `\n[SYSTEM] Entered ${location} directory.\nUse 'show <index>' to view items.\nUse '..' to go back.`;
+                } else {
+                  output = `\n[ERROR] Invalid location: ${location}\nValid locations: ${validLocations.join(', ')}`;
+                }
+              } else {
+                output = `\n[ERROR] Usage: use <location>\nExample: use DOOR`;
+              }
+              setCommandOutput(prev => [...prev, { command: currentCommand, output }]);
+              setCurrentCommand('');
+              setCursorPosition(0);
+              return;
+            }
+            
             if (cmd === 'help') {
               output = `
               
@@ -160,8 +575,12 @@ function App() {
 +--------------------------------------------------------+
 
 `;
-            } else if (cmd === 'chat_with_kuweni') {
-              output = 'KUWENI: Hello! I am KUWENI. How can I assist you today?';
+            } else if (cmd === 'chat_with_kuweni' || cmd === 'chat') {
+              // Enter chat mode
+              setChatMode(true);
+              setChatHistory([]);
+              setBotReplyCount(0);
+              output = `\nChat mode activated. You are now chatting with KUWENI.\nType your message and press ENTER.\nPress Ctrl+C to exit chat mode.\n`;
             } else if (cmd === 'show_img') {
               output = `Available Images:
 [0] location_image.png
@@ -172,8 +591,104 @@ function App() {
 
 Enter image index (0-4):`;
               setImageSelectionMode(true);
-            } else if (cmd === 'show_map') {
-              output = 'Showing map location... (Feature coming soon)';
+            } else if (cmd.startsWith('show_map')) {
+              const parts = cmd.split(' ');
+              if (parts.length === 1) {
+                // Just "show_map" - show the map and instructions
+                output = `
+
+============================================
+              ROOM LAYOUT
+============================================
+
+                [DOOR]
+                   |
++--------------        ------------------+
+|                             [DESK]     |
+|  [CUPBOARD]             ╔══════════╗   |
+|  ╔═════════╗            ║    PC    ║   |
+|  ║         ║            ║  TABLE   ║   |
+|  ║CLOTHES  ║            ╚══════════╝   |
+|  ║  BOOKS  ║               ╔═══╗       |
+|  ╚═════════╝               ╚═══╝       |
+|                                        |
+|  ╔══════════════════════════════════╗  |
+|  ║                                  ║  |
+|  ║                                  ║  |
+|  ║                                  ║  |
+|  ║                                  ║  |
+|  ║             [BED]                ║  |
+|  ║                                  ║  |
+|  ║                                  ║  |
+|  ╚══════════════════════════════════╝  |
++----------------------------------------+
+
++-- INSTRUCTIONS ----------------------------------+
+|                                                  |
+|  To see what are inside, use:                    |
+|                                                  |
+|    show_map DOOR                                 |
+|    show_map DESK                                 |
+|    show_map PC                                   |
+|    show_map BED                                  |
+|    show_map BOOKS                                |
+|                                                  |
++--------------------------------------------------+
+`;
+              } else {
+                // Has parameter - handle sub-commands
+                const location = parts[1].toUpperCase();
+                if (location === 'DOOR') {
+                  output = `
+Items found in DOOR:
+
+[0] PICTURE
+[1] CALENDER
+`;
+                } else if (location === 'DESK') {
+                  output = `
+Items found in DESK:
+
+[0] LAPTOP
+[1] PAPER
+[2] NOTEBOOK
+`;
+                } else if (location === 'PC') {
+                  output = `
+PC Login Terminal
+
+[SYSTEM] PC access requires authentication.
+[SYSTEM] Login feature will be available soon.
+
+(Login functionality will be implemented later)
+`;
+                } else if (location === 'BED') {
+                  output = `
+Items found in BED:
+
+[0] STORY BOOK
+[1] PILLOW
+[2] BED SHEET
+`;
+                } else if (location === 'BOOKS') {
+                  output = `
+Books found in BOOKS:
+
+[0] BOOK_01
+[1] BOOK_02
+[2] BOOK_03
+[3] BOOK_04
+[4] BOOK_05
+[5] BOOK_06
+[6] BOOK_07
+[7] BOOK_08
+[8] BOOK_09
+[9] BOOK_10
+`;
+                } else {
+                  output = `\nInvalid location: ${location}\nValid locations: DOOR, DESK, PC, BED, BOOKS`;
+                }
+              }
             } else if (cmd === 'get_location') {
               output = 'Location coordinates: (Feature coming soon)';
             } else {
@@ -248,7 +763,7 @@ Enter image index (0-4):`;
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [loading, isAuthenticated, isCheckingAuth, showPasswordField, handleLogin, currentCommand, cursorPosition, commandHistory, historyIndex]);
+  }, [loading, isAuthenticated, isCheckingAuth, showPasswordField, handleLogin, currentCommand, cursorPosition, commandHistory, historyIndex, chatMode, imageSelectionMode, chatSessionId, botReplyCount, currentLocation]);
 
   // Disable right-click and developer tools
   useEffect(() => {
@@ -383,7 +898,7 @@ KUWENI@ftp:/$ `;
         };
 
         typingInterval = setInterval(typeWelcomeMessage, 10);
-      }, 500);
+      }, 5);
 
       return () => {
         clearTimeout(delay);
@@ -410,7 +925,25 @@ KUWENI@ftp:/$ `;
     const timeout = setTimeout(scrollToBottom, 10);
     
     return () => clearTimeout(timeout);
-  }, [typedText, commandOutput, currentCommand]);
+  }, [typedText, commandOutput, currentCommand, chatHistory, typingMessage]);
+
+  // Cleanup typing animation when component unmounts or chat mode exits
+  useEffect(() => {
+    return () => {
+      if (typingIntervalRef.current) {
+        clearInterval(typingIntervalRef.current);
+      }
+    };
+  }, []);
+
+  // Cleanup typing animation when exiting chat mode
+  useEffect(() => {
+    if (!chatMode && typingIntervalRef.current) {
+      clearInterval(typingIntervalRef.current);
+      typingIntervalRef.current = null;
+      setTypingMessage({ index: null, text: '', fullText: '' });
+    }
+  }, [chatMode]);
 
   if (loading) {
     return (
@@ -444,6 +977,20 @@ KUWENI@ftp:/$ `;
       }
     }
     
+    // Format chat history with typing animation
+    const chatDisplay = chatHistory.length > 0 ? chatHistory.map((item, index) => {
+      // Show typing animation if this message is currently being typed
+      if (item.sender === 'KUWENI' && typingMessage.index === index && typingMessage.text !== '') {
+        return `KUWENI> ${typingMessage.text}`;
+      }
+      // Show empty placeholder if it's a KUWENI message but not yet typed
+      if (item.sender === 'KUWENI' && typingMessage.index === index && typingMessage.text === '') {
+        return `KUWENI> `;
+      }
+      // Show normal message
+      return `${item.sender}> ${item.message}`;
+    }).join('\n') : '';
+    
     return (
       <div className="App">
         <header className="App-header" ref={terminalRef} style={{justifyContent: 'flex-start', alignItems: 'flex-start', overflow: 'auto'}}>
@@ -458,7 +1005,8 @@ KUWENI@ftp:/$ `;
   }
   return `\nKUWENI@ftp:/$ ${item.command}\n${output}`;
 }).join('\n')}
-{animationComplete ? `\nKUWENI@ftp:/$ ${commandBeforeCursor}` : ''}<span className="terminal-cursor">█</span>{animationComplete ? commandAfterCursor : ''}
+{chatDisplay}
+{animationComplete ? (chatMode ? `\nVIJAYA> ${commandBeforeCursor}` : `\nKUWENI@ftp:/${currentLocation ? `$${currentLocation}/` : '$'} ${commandBeforeCursor}`) : ''}<span className="terminal-cursor">█</span>{animationComplete ? commandAfterCursor : ''}
             </pre>
           </div>
         </header>
