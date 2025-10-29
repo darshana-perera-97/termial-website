@@ -1,38 +1,47 @@
 .App {
-  text-align: center;
+  text-align: left;
+  background-color: #000000;
+  min-height: 100vh;
+  padding: 20px;
+  font-family: 'Consolas', 'Courier New', 'Lucida Console', monospace;
 }
 
 .App-logo {
-  height: 40vmin;
-  pointer-events: none;
-}
-
-@media (prefers-reduced-motion: no-preference) {
-  .App-logo {
-    animation: App-logo-spin infinite 20s linear;
-  }
+  display: none;
 }
 
 .App-header {
-  background-color: #282c34;
+  background-color: #000000;
   min-height: 100vh;
   display: flex;
   flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  font-size: calc(10px + 2vmin);
-  color: white;
+  color: #00FF00;
+  font-family: 'Consolas', 'Courier New', 'Lucida Console', monospace;
+  padding: 20px;
 }
 
 .App-link {
-  color: #61dafb;
+  color: #00FF00;
+  text-decoration: none;
 }
 
-@keyframes App-logo-spin {
-  from {
-    transform: rotate(0deg);
+.App-link:hover {
+  text-decoration: underline;
+}
+
+/* Terminal cursor animation */
+@keyframes blink {
+  0%, 100% {
+    opacity: 1;
   }
-  to {
-    transform: rotate(360deg);
+  50% {
+    opacity: 0;
   }
+}
+
+.terminal-cursor {
+  background-color: #00FF00;
+  animation: blink 1s infinite;
+  padding-left: 2px;
+  padding-right: 2px;
 }
